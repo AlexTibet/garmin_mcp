@@ -1,0 +1,44 @@
+# Garmin MCP + Caddy (HTTPS) для подключения к Claude как свой коннектор.
+# Запуск: cd deploy && docker compose up -d
+services:
+  garmin-mcp:
+    build: ..
+    container_name: garmin-mcp
+    restart: unless-stopped
+    environment:
+      - GARMIN_MCP_TRANSPORT=streamable-http
+      - GARMIN_MCP_HOST=0.0.0.0
+      - GARMIN_MCP_PORT=8000
+      - GARMIN_MCP_HTTP_TOKEN=${MCP_TOKEN}
+      # Без этого claude.ai после простоя получает "Session not found"
+      - GARMIN_MCP_STATELESS_HTTP=true
+      # Запрещаем удаление и правку данных. Чтение и отправка тренировок на часы остаются.
+      - GARMIN_DISABLED_TOOLS=delete_activity,delete_course,delete_custom_food,delete_food_log,delete_weigh_ins,delete_workout,delete_workouts,download_activity_file,download_course_gpx,download_workout,remove_gear_from_activity,reschedule_workout,set_activity_description,set_activity_event_type,set_activity_exercise_sets,set_activity_feel,set_activity_name,set_activity_type,set_heart_rate_zones,set_nutrition_daily_settings,set_perceived_effort,unschedule_workout,unschedule_workouts,update_custom_food
+    volumes:
+      - garmin-tokens:/root/.garminconnect
+    # Порт наружу НЕ открываем: доступ только через Caddy
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    container_name: garmin-caddy
+    restart: unless-stopped
+    depends_on:
+      - garmin-mcp
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
+      - SECRET_PATH=${SECRET_PATH}
+      - MCP_TOKEN=${MCP_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  garmin-tokens:
+  caddy-data:
+  caddy-config:

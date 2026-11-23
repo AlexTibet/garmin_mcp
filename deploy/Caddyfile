@@ -1,0 +1,14 @@
+{$DOMAIN} {
+	# Секретный путь: https://DOMAIN/SECRET_PATH/mcp -> garmin-mcp:8000/mcp
+	handle_path /{$SECRET_PATH}/* {
+		reverse_proxy garmin-mcp:8000 {
+			# Claude не умеет слать свой заголовок — подставляем токен сами
+			header_up Authorization "Bearer {$MCP_TOKEN}"
+		}
+	}
+
+	# Всё остальное — 404
+	handle {
+		respond 404
+	}
+}
